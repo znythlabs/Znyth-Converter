@@ -1,15 +1,11 @@
-
 import { FileFormat, ConversionResult, ConversionOptions } from '../types';
 
 // ------------------------------------------------------------------
 // API Configuration
 // ------------------------------------------------------------------
-// In production, this points to /api/convert (Vercel serverless function)
-// In development, it uses local fallback with Cobalt
-const API_BASE_URL = import.meta.env.PROD ? '/api' : '';
-const USE_LOCAL_FALLBACK = !import.meta.env.PROD;
+const API_BASE_URL = '/api';
 
-// Cobalt instances for local development fallback
+// Cobalt instances for fallback
 const COBALT_INSTANCES = [
   'https://api.cobalt.tools',
   'https://cobalt-api.kwiatekmiki.com'
@@ -20,7 +16,7 @@ const COBALT_INSTANCES = [
 // ------------------------------------------------------------------
 
 /**
- * Converts media from a URL using the backend API
+ * Converts media from a URL using the backend API with Cobalt fallback
  */
 export const convertMedia = async (
   url: string,
@@ -42,51 +38,53 @@ export const convertMedia = async (
     };
   }
 
-  // In production, use the serverless API
-  if (!USE_LOCAL_FALLBACK) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/convert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url,
-          format,
-          quality: options?.resolution || '1080p'
-        })
-      });
+  // Try the serverless API first
+  try {
+    console.log('[Znyth] Calling backend API...');
+    const response = await fetch(`${API_BASE_URL}/convert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url,
+        format,
+        quality: options?.resolution || '1080p'
+      })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || `Server error: ${response.status}`);
-      }
-
-      if (!data.success || !data.downloadUrl) {
-        throw new Error(data.error || 'Failed to get download URL');
-      }
-
-      return {
-        downloadUrl: data.downloadUrl,
-        filename: data.filename || `znyth_${Date.now()}.${format.toLowerCase()}`,
-        fileSize: data.fileSize || 'Unknown'
-      };
-    } catch (error: any) {
-      // If rate limited, show helpful message
-      if (error.message?.includes('Rate limit')) {
-        throw new Error('Too many requests. Please wait a moment and try again.');
-      }
-      throw error;
+    if (!response.ok) {
+      console.warn('[Znyth] API error:', data.error);
+      throw new Error(data.error || `Server error: ${response.status}`);
     }
-  }
 
-  // Local development: Use Cobalt directly
-  return fetchWithCobalt(url, format, options);
+    if (!data.success || !data.downloadUrl) {
+      throw new Error(data.error || 'Failed to get download URL');
+    }
+
+    console.log('[Znyth] API success!');
+    return {
+      downloadUrl: data.downloadUrl,
+      filename: data.filename || `znyth_${Date.now()}.${format.toLowerCase()}`,
+      fileSize: data.fileSize || 'Unknown'
+    };
+  } catch (error: any) {
+    console.warn('[Znyth] API failed, trying Cobalt fallback...', error.message);
+
+    // If rate limited, don't fallback
+    if (error.message?.includes('Rate limit')) {
+      throw new Error('Too many requests. Please wait a moment and try again.');
+    }
+
+    // Fallback to Cobalt
+    return fetchWithCobalt(url, format, options);
+  }
 };
 
 // ------------------------------------------------------------------
-// LOCAL DEVELOPMENT FALLBACK
+// COBALT FALLBACK
 // ------------------------------------------------------------------
 
 async function fetchWithCobalt(
@@ -99,7 +97,7 @@ async function fetchWithCobalt(
 
   for (const instance of COBALT_INSTANCES) {
     try {
-      console.log(`[Dev] Trying Cobalt: ${instance}`);
+      console.log(`[Znyth] Trying Cobalt: ${instance}`);
 
       const response = await fetch(instance, {
         method: 'POST',
@@ -147,7 +145,7 @@ async function fetchWithCobalt(
       }
 
     } catch (error: any) {
-      console.warn(`Cobalt ${instance} failed:`, error.message);
+      console.warn(`[Znyth] Cobalt ${instance} failed:`, error.message);
       lastError = error;
 
       // Don't retry on definitive errors
@@ -173,7 +171,5 @@ export const fetchMediaInfo = async (url: string): Promise<{
   thumbnail?: string;
   duration?: string;
 } | null> => {
-  // This can be implemented later with a dedicated endpoint
-  // For now, return null to indicate no preview available
   return null;
 };
