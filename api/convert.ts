@@ -76,38 +76,41 @@ function sanitizeFilename(name: string): string {
 // API HANDLERS
 // ------------------------------------------------------------------
 
-async function fetchWithRapidAPI(url: string): Promise<any> {
+async function fetchWithRapidAPI(url: string, format: string, quality: string): Promise<any> {
     if (!RAPID_API_KEY) throw new Error('RapidAPI key not configured');
 
     const encodedUrl = encodeURIComponent(url);
+    const isAudio = format === 'MP3' || format === 'AUDIO';
 
-    // Try different RapidAPI endpoints
-    const endpoints = [
-        `https://${RAPID_API_HOST}/dl?url=${encodedUrl}`,
-        `https://${RAPID_API_HOST}/download?url=${encodedUrl}`,
-        `https://${RAPID_API_HOST}/?url=${encodedUrl}`
-    ];
+    // YouTube Info & Download API endpoint format
+    // /ajax/download.php?format=mp3&add_info=0&url=...
+    const audioQuality = quality === '320k' ? 320 : quality === '192k' ? 192 : 128;
+    const videoQuality = quality === '4k' ? '2160' : quality === '720p' ? '720' : '1080';
 
-    for (const endpoint of endpoints) {
-        try {
-            const response = await fetch(endpoint, {
-                method: 'GET',
-                headers: {
-                    'x-rapidapi-key': RAPID_API_KEY,
-                    'x-rapidapi-host': RAPID_API_HOST
-                }
-            });
+    const endpoint = isAudio
+        ? `https://${RAPID_API_HOST}/ajax/download.php?format=mp3&add_info=0&url=${encodedUrl}&audio_quality=${audioQuality}&allow_extended_duration=false&no_merge=false&audio_language=en`
+        : `https://${RAPID_API_HOST}/ajax/download.php?format=mp4&add_info=0&url=${encodedUrl}&quality=${videoQuality}&allow_extended_duration=false&no_merge=false`;
 
-            if (response.ok) {
-                return await response.json();
-            }
-            if (response.status === 404) continue;
-        } catch {
-            continue;
+    console.log('[RapidAPI] Calling:', endpoint.substring(0, 100) + '...');
+
+    const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+            'x-rapidapi-key': RAPID_API_KEY,
+            'x-rapidapi-host': RAPID_API_HOST
         }
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[RapidAPI] Error:', response.status, errorText);
+        throw new Error(`RapidAPI error: ${response.status}`);
     }
 
-    throw new Error('RapidAPI request failed');
+    const data = await response.json();
+    console.log('[RapidAPI] Response:', JSON.stringify(data).substring(0, 200));
+
+    return data;
 }
 
 async function fetchWithCobalt(url: string, format: string, quality: string): Promise<any> {
@@ -232,10 +235,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Try RapidAPI first
         if (RAPID_API_KEY) {
             try {
-                const rapidData = await fetchWithRapidAPI(url);
+                const rapidData = await fetchWithRapidAPI(url, format, quality);
                 downloadData = extractDownloadUrl(rapidData);
-            } catch (error) {
-                console.log('RapidAPI failed, falling back to Cobalt');
+            } catch (error: any) {
+                console.log('RapidAPI failed:', error.message, '- falling back to Cobalt');
             }
         }
 
