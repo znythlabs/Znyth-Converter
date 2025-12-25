@@ -81,18 +81,27 @@ async function fetchWithRapidAPI(
   }
 
   // Map quality to API format
-  // 247 = 720p, 248 = 1080p, 137 = 1080p, 136 = 720p, 135 = 480p
-  const qualityMap: Record<string, string> = {
-    '1080p': '248',
-    '720p': '247',
-    '480p': '135',
-    '360p': '134'
-  };
+  // For Video: 247 = 720p, 248 = 1080p, 137 = 1080p, 136 = 720p, 135 = 480p
+  // For Audio: 251 = 160kbps (High), 140 = 128kbps (Med)
+  const isAudio = format === 'MP3';
+  let quality: string;
 
-  const quality = qualityMap[options?.resolution || '720p'] || '247';
+  if (isAudio) {
+    quality = '251'; // Default to high quality audio
+  } else {
+    const qualityMap: Record<string, string> = {
+      '1080p': '248',
+      '720p': '247',
+      '480p': '135',
+      '360p': '134'
+    };
+    quality = qualityMap[options?.resolution || '720p'] || '247';
+  }
+
+  const endpoint = isAudio ? 'download_audio' : 'download_video';
 
   const response = await fetch(
-    `https://${RAPIDAPI_HOST}/download_video/${videoId}?quality=${quality}`,
+    `https://${RAPIDAPI_HOST}/${endpoint}/${videoId}?quality=${quality}`,
     {
       method: 'GET',
       headers: {
@@ -121,7 +130,8 @@ async function fetchWithRapidAPI(
   // Format file size
   const fileSizeMB = data.size ? `${Math.round(data.size / 1024 / 1024)} MB` : 'Unknown';
 
-  const filename = `youtube_${videoId}.mp4`;
+  const ext = isAudio ? 'mp3' : 'mp4';
+  const filename = `youtube_${videoId}.${ext}`;
 
   return {
     downloadUrl,
@@ -129,10 +139,6 @@ async function fetchWithRapidAPI(
     fileSize: fileSizeMB
   };
 }
-
-// ------------------------------------------------------------------
-// COBALT API (Other platforms)
-// ------------------------------------------------------------------
 
 async function fetchWithCobalt(
   url: string,

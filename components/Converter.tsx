@@ -401,13 +401,17 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
     document.body.removeChild(link);
   };
 
-  const handleBatchDownload = () => {
-    // In a real app, this might zip the files. 
-    // Here we just trigger individual downloads for completed items.
+  const handleBatchDownload = async () => {
+    // Trigger downloads with a delay to prevent browser blocking
     const completed = batchItems.filter(i => i.status === 'COMPLETED' && i.result);
-    completed.forEach(item => {
-      if (item.result) handleDownload(item.result);
-    });
+
+    for (const item of completed) {
+      if (item.result) {
+        handleDownload(item.result);
+        // Small delay between downloads is crucial for browsers
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+    }
   };
 
   const reset = () => {
@@ -903,32 +907,36 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                     </div>
                   </div>
 
-                  {/* Batch Processing List (Shows Errors) */}
+                  {/* Batch Processing List (Shows Errors) - NEUMORPHIC & ETCHED STYLE */}
                   {mode === 'BATCH' && (appState === AppState.PROCESSING || batchItems.length > 0) && (
-                    <div className="max-h-56 overflow-y-auto neo-pressed rounded-2xl p-4 space-y-3 custom-scrollbar">
+                    <div className="max-h-64 overflow-y-auto neo-inset-panel p-4 space-y-4 custom-scrollbar">
                       {batchItems.map((item) => (
-                        <div key={item.id} className="flex items-center gap-4 p-3 bg-white/40 rounded-xl border border-white/50 relative overflow-hidden">
-                          {/* Status Icon */}
-                          <div className="shrink-0 z-10">
-                            {item.status === 'COMPLETED' && <CheckCircle className="w-5 h-5 text-[#4B9BFF]" />}
+                        <div key={item.id} className="group relative overflow-hidden neo-flat p-4 rounded-xl flex items-center gap-4 transition-all hover:translate-y-[-2px]">
+                          {/* Status Icon with Etched Effect */}
+                          <div className="shrink-0 z-10 p-2 neo-pressed rounded-full">
+                            {item.status === 'COMPLETED' && <CheckCircle className="w-5 h-5 text-[#4B9BFF] neo-icon-etched" />}
                             {item.status === 'PROCESSING' && <Loader2 className="w-5 h-5 text-[#4B9BFF] animate-spin" />}
-                            {item.status === 'FAILED' && <AlertCircle className="w-5 h-5 text-red-500" />}
+                            {item.status === 'FAILED' && <AlertCircle className="w-5 h-5 text-red-500 neo-icon-etched-error" />}
                             {item.status === 'PENDING' && <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-dashed" />}
                           </div>
 
-                          <div className="flex-1 space-y-1.5 z-10 min-w-0">
-                            <div className="flex justify-between items-center text-xs font-bold">
-                              <span className={`truncate ${item.status === 'FAILED' ? 'text-red-500' : 'text-gray-500'}`}>
+                          <div className="flex-1 space-y-2 z-10 min-w-0">
+                            <div className="flex justify-between items-center text-sm font-bold tracking-tight">
+                              <span className={`truncate mr-4 neo-text-etched ${item.status === 'FAILED' ? 'text-red-500' : 'text-gray-600'}`}>
                                 {item.url}
                               </span>
-                              <span className={item.status === 'FAILED' ? 'text-red-500' : 'text-gray-400'}>
+                              <span className={`text-[10px] uppercase font-black tracking-widest ${item.status === 'FAILED' ? 'text-red-500' : 'text-gray-400'}`}>
                                 {item.status === 'FAILED' ? (item.error || 'Failed') : `${Math.round(item.progress)}%`}
                               </span>
                             </div>
-                            {/* Progress Bar */}
-                            <div className="h-1.5 bg-gray-200/60 rounded-full overflow-hidden">
+
+                            {/* Neumorphic Progress Bar */}
+                            <div className="h-3 w-full bg-[#E0E5EC] rounded-full shadow-[inset_2px_2px_5px_#b8b9be,inset_-3px_-3px_7px_#ffffff] overflow-hidden">
                               <div
-                                className={`h-full transition-all duration-300 rounded-full ${item.status === 'FAILED' ? 'bg-red-400' : 'bg-[#4B9BFF] shadow-[0_0_10px_#4B9BFF]'}`}
+                                className={`h-full transition-all duration-300 rounded-full ${item.status === 'FAILED'
+                                    ? 'bg-red-400'
+                                    : 'bg-gradient-to-r from-[#4B9BFF] to-[#0066FF] shadow-[0_2px_5px_rgba(75,155,255,0.4)]'
+                                  }`}
                                 style={{ width: `${item.progress}%` }}
                               />
                             </div>
