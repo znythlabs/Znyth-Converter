@@ -107,25 +107,26 @@ async function fetchWithRapidAPI(
   }
 
   const data = await response.json();
-  console.log('[RapidAPI] Response:', data);
+  console.log('[RapidAPI] Response fields:', Object.keys(data));
 
-  // Handle response - the API might return the download URL directly or in a field
-  let downloadUrl = data.url || data.downloadUrl || data.link || data;
-
-  if (typeof downloadUrl === 'object') {
-    downloadUrl = downloadUrl.url || downloadUrl.downloadUrl || JSON.stringify(downloadUrl);
-  }
+  // The API returns: { size, bitrate, type, quality, mime, comment, file, reserved_file }
+  // Download URL is in the 'file' field
+  const downloadUrl = data.file || data.reserved_file;
 
   if (!downloadUrl || typeof downloadUrl !== 'string' || !downloadUrl.startsWith('http')) {
+    console.error('[RapidAPI] Invalid response:', data);
     throw new Error('Could not get download URL from RapidAPI');
   }
+
+  // Format file size
+  const fileSizeMB = data.size ? `${Math.round(data.size / 1024 / 1024)} MB` : 'Unknown';
 
   const filename = `youtube_${videoId}.mp4`;
 
   return {
     downloadUrl,
     filename,
-    fileSize: 'Unknown'
+    fileSize: fileSizeMB
   };
 }
 
