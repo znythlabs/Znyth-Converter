@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Link2,
@@ -402,15 +404,47 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
   };
 
   const handleBatchDownload = async () => {
-    // Trigger downloads with a delay to prevent browser blocking
+    // Collect all completed items with valid results
     const completed = batchItems.filter(i => i.status === 'COMPLETED' && i.result);
+    if (completed.length === 0) return;
 
-    for (const item of completed) {
-      if (item.result) {
-        handleDownload(item.result);
-        // Small delay between downloads is crucial for browsers
-        await new Promise(resolve => setTimeout(resolve, 800));
+    setAppState(AppState.PROCESSING); // Show processing state while zipping
+
+    try {
+      const zip = new JSZip();
+
+      // Fetch each file and add to zip
+      await Promise.all(completed.map(async (item) => {
+        if (!item.result) return;
+        try {
+          // Fetch the file content as a blob
+          const response = await fetch(item.result.downloadUrl);
+          if (!response.ok) throw new Error('Fetch failed');
+          const blob = await response.blob();
+
+          zip.file(item.result.filename, blob);
+        } catch (err) {
+          console.error(`Failed to zip file: ${item.result.filename}`, err);
+          // If fetch fails (e.g. CORS), fallback to individual download
+          handleDownload(item.result);
+        }
+      }));
+
+      // Generate the zip file
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `znyth_batch_download_${Date.now()}.zip`);
+
+      setAppState(AppState.SUCCESS);
+    } catch (e) {
+      console.error("Zipping failed", e);
+      // Fallback: simple delay loop
+      for (const item of completed) {
+        if (item.result) {
+          handleDownload(item.result);
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
       }
+      setAppState(AppState.SUCCESS);
     }
   };
 
@@ -907,9 +941,9 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                     </div>
                   </div>
 
-                  {/* Batch Processing List (Shows Errors) - NEUMORPHIC & ETCHED STYLE */}
+                  {/* Batch Processing List (Shows Errors) - MATCHING OPTIONS PANEL STYLE */}
                   {mode === 'BATCH' && (appState === AppState.PROCESSING || batchItems.length > 0) && (
-                    <div className="max-h-64 overflow-y-auto neo-inset-panel p-4 space-y-4 custom-scrollbar">
+                    <div className="max-h-64 overflow-y-auto neo-pressed rounded-2xl p-4 md:p-5 space-y-4 custom-scrollbar">
                       {batchItems.map((item) => (
                         <div key={item.id} className="group relative overflow-hidden neo-flat p-4 rounded-xl flex items-center gap-4 transition-all hover:translate-y-[-2px]">
                           {/* Status Icon with Etched Effect */}
@@ -934,8 +968,8 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                             <div className="h-3 w-full bg-[#E0E5EC] rounded-full shadow-[inset_2px_2px_5px_#b8b9be,inset_-3px_-3px_7px_#ffffff] overflow-hidden">
                               <div
                                 className={`h-full transition-all duration-300 rounded-full ${item.status === 'FAILED'
-                                    ? 'bg-red-400'
-                                    : 'bg-gradient-to-r from-[#4B9BFF] to-[#0066FF] shadow-[0_2px_5px_rgba(75,155,255,0.4)]'
+                                  ? 'bg-red-400'
+                                  : 'bg-gradient-to-r from-[#4B9BFF] to-[#0066FF] shadow-[0_2px_5px_rgba(75,155,255,0.4)]'
                                   }`}
                                 style={{ width: `${item.progress}%` }}
                               />
