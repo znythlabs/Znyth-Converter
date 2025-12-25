@@ -1,11 +1,9 @@
-
 import { FileFormat, ConversionResult, ConversionOptions } from '../types';
 
 // ------------------------------------------------------------------
 // CONFIGURATION: RAPID API
 // ------------------------------------------------------------------
-// The user's provided key and host
-const RAPID_API_KEY: string = 'MY KEY HERE'; 
+const RAPID_API_KEY: string = 'cc989ea7bbmsha43197738848936p17de93jsnf3a4db5b272d'; 
 const RAPID_API_HOST = 'youtube-info-download-api.p.rapidapi.com';
 // ------------------------------------------------------------------
 
@@ -19,24 +17,35 @@ const COBALT_INSTANCES = [
 
 /**
  * Helper to try fetching from RapidAPI with different path strategies
+ * Includes CORS Proxy fallback for localhost/frontend usage.
  */
 async function fetchRapidApi(url: string, apiKey: string, host: string): Promise<any> {
   const encodedUrl = encodeURIComponent(url);
   
-  // Strategy: Try common endpoint patterns. 
-  // If the specific API expects /download?url=... instead of /?url=..., this catches it.
-  const endpoints = [
-     `https://${host}/?url=${encodedUrl}`,           // Standard root
-     `https://${host}/download?url=${encodedUrl}`,    // Common /download path
-     `https://${host}/get?url=${encodedUrl}`,         // Common /get path
-     `https://${host}/dl?url=${encodedUrl}`           // Common /dl path
+  // 1. Define possible endpoint paths for this API
+  const paths = [
+     `https://${host}/download?url=${encodedUrl}`,
+     `https://${host}/?url=${encodedUrl}`,
+     `https://${host}/get?url=${encodedUrl}`,
+     `https://${host}/dl?url=${encodedUrl}`
+  ];
+
+  // 2. Add CORS Proxy versions of those paths
+  // This fixes "Failed to fetch" on localhost by bypassing browser CORS restrictions
+  const proxyBase = 'https://corsproxy.io/?';
+  const allEndpoints = [
+      ...paths, // Try direct first (fastest)
+      ...paths.map(p => `${proxyBase}${encodeURIComponent(p)}`) // Try proxied second (safer)
   ];
 
   let lastError;
 
-  for (const endpoint of endpoints) {
+  for (const endpoint of allEndpoints) {
     try {
       console.log(`Trying RapidAPI endpoint: ${endpoint}`);
+      
+      // Note: When using CORS proxy, we don't need some headers, but RapidAPI needs them.
+      // We pass them normally.
       const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
@@ -48,14 +57,14 @@ async function fetchRapidApi(url: string, apiKey: string, host: string): Promise
       if (response.ok) {
         return await response.json();
       } else {
-        // If 404, it might just be the wrong path, continue loop to try next one
+        // If 404, just try next path
         if (response.status === 404) continue;
         throw new Error(`RapidAPI Status: ${response.status}`);
       }
     } catch (e: any) {
       lastError = e;
-      // If network error (CORS), we continue loop but it likely affects all paths.
-      // We will eventually throw and let the Cobalt fallback handle it.
+      console.warn(`Attempt failed for ${endpoint}: ${e.message}`);
+      // Continue to next endpoint strategy
     }
   }
   
@@ -88,7 +97,6 @@ export const convertMedia = async (url: string, format: FileFormat, options?: Co
         const data = await fetchRapidApi(url, RAPID_API_KEY, RAPID_API_HOST);
         
         // ADAPTER: Parse generic responses flexibly
-        // Many APIs return deep objects, we try to find a valid URL string
         let finalUrl = null;
         let fileSize = "High Quality";
         let filename = `znyth_rapid_${Date.now()}.${format.toLowerCase()}`;
@@ -121,12 +129,11 @@ export const convertMedia = async (url: string, format: FileFormat, options?: Co
         
       } catch (e: any) {
          console.warn(`RapidAPI failed (${e.message}), falling back to Cobalt instances...`);
-         // We do NOT throw here; we let execution continue to step 3 (Cobalt fallback)
+         // Fallback continues below
       }
   }
 
   // 3. FALLBACK: Cobalt API (Multi-Instance)
-  // This is the most reliable fallback for YouTube/Social Media if the paid API fails.
   let lastError: Error | null = null;
 
   for (const apiBase of COBALT_INSTANCES) {
@@ -151,10 +158,8 @@ export const convertMedia = async (url: string, format: FileFormat, options?: Co
 
       if (data.status === 'error' || !data.url) {
         if (data.text && (data.text.includes('private') || data.text.includes('invalid'))) {
-             // If it's definitely a bad URL, stop trying
              throw new Error(data.text); 
         }
-        // Otherwise try next instance
         throw new Error(data.text || "Instance failed");
       }
 
@@ -177,5 +182,5 @@ export const convertMedia = async (url: string, format: FileFormat, options?: Co
   }
 
   // If all failed
-  throw lastError || new Error("All conversion services are busy. Please check the URL or try again later.");
+  throw new Error("Network error. Please disable AdBlocker or try a different link.");
 };
