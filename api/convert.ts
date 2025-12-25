@@ -169,6 +169,26 @@ async function fetchWithCobalt(url: string, format: string, quality: string): Pr
 }
 
 function extractDownloadUrl(data: any): { url: string; filename: string; size?: string } | null {
+    // Blocklist of known ad/promo domains to filter out
+    const AD_DOMAINS = [
+        'byclickdownloader.com',
+        'y2mate.com',
+        'savefrom.net',
+        'ytmp3.cc',
+        'ssyoutube.com',
+        'snaptik.app',
+        'tiktokdownloader.com'
+    ];
+
+    const isAdUrl = (url: string): boolean => {
+        try {
+            const hostname = new URL(url).hostname.toLowerCase();
+            return AD_DOMAINS.some(ad => hostname.includes(ad));
+        } catch {
+            return false;
+        }
+    };
+
     // Handle YouTube Info & Download API response (base64 encoded HTML)
     if (data.success && data.content) {
         try {
@@ -176,41 +196,52 @@ function extractDownloadUrl(data: any): { url: string; filename: string; size?: 
             const html = Buffer.from(data.content, 'base64').toString('utf-8');
             console.log('[RapidAPI] Decoded HTML (first 500 chars):', html.substring(0, 500));
 
-            // Extract download link from HTML - look for href with download URL
-            // Pattern: href="https://...download..." or data-url="..."
+            // Look for actual media URLs - more specific patterns
             const urlPatterns = [
-                /href=["']([^"']*(?:download|\.mp4|\.mp3|\.webm)[^"']*)["']/gi,
-                /data-url=["']([^"']+)["']/gi,
-                /(https?:\/\/[^\s"'<>]+(?:\.mp4|\.mp3|\.webm))/gi,
-                /window\.location\.href\s*=\s*["']([^"']+)["']/gi
+                // Direct media file URLs (highest priority)
+                /(https?:\/\/[^\s"'<>]+\.(?:mp4|mp3|webm|m4a)(?:\?[^\s"'<>]*)?)/gi,
+                // YouTube/Google video URLs
+                /(https?:\/\/[^\s"'<>]*(?:googlevideo|youtube)[^\s"'<>]+)/gi,
+                // CDN download URLs
+                /(https?:\/\/[^\s"'<>]*(?:cdn|media|video|audio|download)[^\s"'<>]*\.[^\s"'<>]+)/gi,
             ];
+
+            const foundUrls: string[] = [];
 
             for (const pattern of urlPatterns) {
                 const matches = html.matchAll(pattern);
                 for (const match of matches) {
                     const url = match[1];
-                    if (url && url.startsWith('http') && !url.includes('javascript:')) {
-                        console.log('[RapidAPI] Found download URL:', url.substring(0, 100));
-                        return {
-                            url,
-                            filename: data.id || 'download',
-                            size: 'Unknown'
-                        };
+                    if (url && url.startsWith('http') && !url.includes('javascript:') && !isAdUrl(url)) {
+                        foundUrls.push(url);
                     }
                 }
             }
 
-            console.warn('[RapidAPI] No download URL found in HTML');
+            console.log('[RapidAPI] Found URLs:', foundUrls.length, foundUrls.map(u => u.substring(0, 80)));
+
+            // Return the first valid media URL
+            if (foundUrls.length > 0) {
+                const bestUrl = foundUrls[0];
+                console.log('[RapidAPI] Selected URL:', bestUrl.substring(0, 100));
+                return {
+                    url: bestUrl,
+                    filename: data.id || 'download',
+                    size: 'Unknown'
+                };
+            }
+
+            console.warn('[RapidAPI] No valid download URL found in HTML');
         } catch (e) {
             console.error('[RapidAPI] Failed to decode content:', e);
         }
     }
 
     // Handle various other API response formats
-    if (typeof data.url === 'string') {
+    if (typeof data.url === 'string' && !isAdUrl(data.url)) {
         return { url: data.url, filename: data.filename || 'download', size: data.size };
     }
-    if (typeof data.link === 'string') {
+    if (typeof data.link === 'string' && !isAdUrl(data.link)) {
         return { url: data.link, filename: data.title || 'download', size: data.size };
     }
     if (data.data?.url) {
