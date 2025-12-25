@@ -57,6 +57,7 @@ export const convertMedia = async (
 
     if (!response.ok) {
       console.warn('[Znyth] API error:', data.error);
+      // Throw the actual error from backend
       throw new Error(data.error || `Server error: ${response.status}`);
     }
 
@@ -71,15 +72,10 @@ export const convertMedia = async (
       fileSize: data.fileSize || 'Unknown'
     };
   } catch (error: any) {
-    console.warn('[Znyth] API failed, trying Cobalt fallback...', error.message);
+    console.warn('[Znyth] Error:', error.message);
 
-    // If rate limited, don't fallback
-    if (error.message?.includes('Rate limit')) {
-      throw new Error('Too many requests. Please wait a moment and try again.');
-    }
-
-    // Fallback to Cobalt
-    return fetchWithCobalt(url, format, options);
+    // Re-throw the actual error message from the backend
+    throw error;
   }
 };
 
