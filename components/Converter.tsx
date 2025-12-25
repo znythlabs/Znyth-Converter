@@ -859,7 +859,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                                           <span>Codec</span>
                                         </div>
                                         <SegmentedControl 
-                                          options={['AAC', 'Opus', 'MP3'] as AudioCodec[]}
+                                          options={['AAC', 'OPUS', 'MP3'] as AudioCodec[]}
                                           value={audioCodec}
                                           onChange={(val) => setAudioCodec(val)}
                                         />

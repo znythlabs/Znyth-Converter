@@ -2,180 +2,178 @@
 import { FileFormat, ConversionResult, ConversionOptions } from '../types';
 
 // ------------------------------------------------------------------
-// CONFIGURATION: RAPID API
+// API Configuration
 // ------------------------------------------------------------------
-// The user's provided key and host
-const RAPID_API_KEY: string = 'MY KEY HERE'; 
-const RAPID_API_HOST = 'youtube-info-download-api.p.rapidapi.com';
-// ------------------------------------------------------------------
+// In production, this points to /api/convert (Vercel serverless function)
+// In development, it uses local fallback with Cobalt
+const API_BASE_URL = import.meta.env.PROD ? '/api' : '';
+const USE_LOCAL_FALLBACK = !import.meta.env.PROD;
 
-// Updated list of public Cobalt instances (Fallback)
+// Cobalt instances for local development fallback
 const COBALT_INSTANCES = [
-  'https://api.cobalt.tools/api/json',
-  'https://cobalt.api.sc/api/json', 
-  'https://on.cobalt.tools/api/json',
-  'https://api.server.cobalt.tools/api/json'
+  'https://api.cobalt.tools',
+  'https://cobalt-api.kwiatekmiki.com'
 ];
 
-/**
- * Helper to try fetching from RapidAPI with different path strategies
- */
-async function fetchRapidApi(url: string, apiKey: string, host: string): Promise<any> {
-  const encodedUrl = encodeURIComponent(url);
-  
-  // Strategy: Try common endpoint patterns. 
-  // If the specific API expects /download?url=... instead of /?url=..., this catches it.
-  const endpoints = [
-     `https://${host}/?url=${encodedUrl}`,           // Standard root
-     `https://${host}/download?url=${encodedUrl}`,    // Common /download path
-     `https://${host}/get?url=${encodedUrl}`,         // Common /get path
-     `https://${host}/dl?url=${encodedUrl}`           // Common /dl path
-  ];
-
-  let lastError;
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Trying RapidAPI endpoint: ${endpoint}`);
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': host
-        }
-      });
-
-      if (response.ok) {
-        return await response.json();
-      } else {
-        // If 404, it might just be the wrong path, continue loop to try next one
-        if (response.status === 404) continue;
-        throw new Error(`RapidAPI Status: ${response.status}`);
-      }
-    } catch (e: any) {
-      lastError = e;
-      // If network error (CORS), we continue loop but it likely affects all paths.
-      // We will eventually throw and let the Cobalt fallback handle it.
-    }
-  }
-  
-  throw lastError || new Error("RapidAPI endpoints failed.");
-}
+// ------------------------------------------------------------------
+// MAIN API FUNCTION
+// ------------------------------------------------------------------
 
 /**
- * Converts media using RapidAPI (Primary) with a robust Cobalt Fallback.
+ * Converts media from a URL using the backend API
  */
-export const convertMedia = async (url: string, format: FileFormat, options?: ConversionOptions): Promise<ConversionResult> => {
+export const convertMedia = async (
+  url: string,
+  format: FileFormat,
+  options?: ConversionOptions
+): Promise<ConversionResult> => {
+  // Validate URL
   if (!url || !url.includes('http')) {
-      throw new Error("Invalid URL provided");
+    throw new Error('Please enter a valid URL');
   }
 
-  // 1. Direct File Handling
+  // Check for direct media files (no conversion needed)
   const lowerUrl = url.toLowerCase();
   if (lowerUrl.match(/\.(mp4|mp3|wav|ogg|webm|jpg|jpeg|png|webp|gif)$/)) {
     return {
       downloadUrl: url,
       filename: url.split('/').pop() || `file.${format.toLowerCase()}`,
-      fileSize: "Unknown"
+      fileSize: 'Direct Link'
     };
   }
 
-  // 2. PRIMARY: Try RapidAPI
-  if (RAPID_API_KEY && RAPID_API_KEY !== 'MY KEY HERE') {
-      try {
-        console.log(`Attempting conversion via RapidAPI (${RAPID_API_HOST})...`);
-        
-        const data = await fetchRapidApi(url, RAPID_API_KEY, RAPID_API_HOST);
-        
-        // ADAPTER: Parse generic responses flexibly
-        // Many APIs return deep objects, we try to find a valid URL string
-        let finalUrl = null;
-        let fileSize = "High Quality";
-        let filename = `znyth_rapid_${Date.now()}.${format.toLowerCase()}`;
-
-        // Check common properties
-        if (typeof data.url === 'string') finalUrl = data.url;
-        else if (typeof data.link === 'string') finalUrl = data.link;
-        else if (data.data && typeof data.data.url === 'string') finalUrl = data.data.url;
-        else if (data.data && typeof data.data.link === 'string') finalUrl = data.data.link;
-        // Check array formats
-        else if (Array.isArray(data) && data[0]?.url) finalUrl = data[0].url;
-        else if (data.links && Array.isArray(data.links) && data.links[0]?.link) finalUrl = data.links[0].link;
-        else if (data.videos && data.videos.items && data.videos.items[0]?.url) finalUrl = data.videos.items[0].url; 
-
-        // Metadata extraction (if available)
-        if (data.title) filename = `${data.title.replace(/[^a-z0-9]/gi, '_')}.${format.toLowerCase()}`;
-        if (data.size) fileSize = data.size;
-        if (data.filesize) fileSize = data.filesize;
-
-        if (finalUrl) {
-            return {
-                downloadUrl: finalUrl,
-                filename,
-                fileSize
-            };
-        } else {
-            console.warn("RapidAPI response structure not recognized:", data);
-            throw new Error("RapidAPI response did not contain a recognizable download URL.");
-        }
-        
-      } catch (e: any) {
-         console.warn(`RapidAPI failed (${e.message}), falling back to Cobalt instances...`);
-         // We do NOT throw here; we let execution continue to step 3 (Cobalt fallback)
-      }
-  }
-
-  // 3. FALLBACK: Cobalt API (Multi-Instance)
-  // This is the most reliable fallback for YouTube/Social Media if the paid API fails.
-  let lastError: Error | null = null;
-
-  for (const apiBase of COBALT_INSTANCES) {
+  // In production, use the serverless API
+  if (!USE_LOCAL_FALLBACK) {
     try {
-      console.log(`Trying Cobalt instance: ${apiBase}`);
-      const response = await fetch(apiBase, {
-          method: 'POST',
-          headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-              url: url,
-              vCodec: 'h264',
-              vQuality: options?.resolution === '4k' ? 'max' : options?.resolution === '720p' ? '720' : '1080',
-              aFormat: format === FileFormat.MP3 ? 'mp3' : 'best',
-              isAudioOnly: format === FileFormat.MP3,
-          })
+      const response = await fetch(`${API_BASE_URL}/convert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url,
+          format,
+          quality: options?.resolution || '1080p'
+        })
       });
 
       const data = await response.json();
 
-      if (data.status === 'error' || !data.url) {
-        if (data.text && (data.text.includes('private') || data.text.includes('invalid'))) {
-             // If it's definitely a bad URL, stop trying
-             throw new Error(data.text); 
-        }
-        // Otherwise try next instance
-        throw new Error(data.text || "Instance failed");
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
       }
 
-      const finalUrl = data.url || (data.picker && data.picker[0]?.url);
-
-      if (!finalUrl) {
-        throw new Error("No media URL found in the response.");
+      if (!data.success || !data.downloadUrl) {
+        throw new Error(data.error || 'Failed to get download URL');
       }
 
       return {
-          downloadUrl: finalUrl,
-          filename: data.filename || `znyth_cobalt_${Date.now()}.${format.toLowerCase()}`,
-          fileSize: "Variable" 
+        downloadUrl: data.downloadUrl,
+        filename: data.filename || `znyth_${Date.now()}.${format.toLowerCase()}`,
+        fileSize: data.fileSize || 'Unknown'
       };
-
     } catch (error: any) {
-       console.warn(`Cobalt fallback failed on ${apiBase}:`, error.message);
-       lastError = error;
+      // If rate limited, show helpful message
+      if (error.message?.includes('Rate limit')) {
+        throw new Error('Too many requests. Please wait a moment and try again.');
+      }
+      throw error;
     }
   }
 
-  // If all failed
-  throw lastError || new Error("All conversion services are busy. Please check the URL or try again later.");
+  // Local development: Use Cobalt directly
+  return fetchWithCobalt(url, format, options);
+};
+
+// ------------------------------------------------------------------
+// LOCAL DEVELOPMENT FALLBACK
+// ------------------------------------------------------------------
+
+async function fetchWithCobalt(
+  url: string,
+  format: FileFormat,
+  options?: ConversionOptions
+): Promise<ConversionResult> {
+  const isAudio = format === FileFormat.MP3;
+  let lastError: Error | null = null;
+
+  for (const instance of COBALT_INSTANCES) {
+    try {
+      console.log(`[Dev] Trying Cobalt: ${instance}`);
+
+      const response = await fetch(instance, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url,
+          downloadMode: isAudio ? 'audio' : 'auto',
+          audioFormat: isAudio ? 'mp3' : 'best',
+          videoQuality: options?.resolution === '4k' ? '2160' :
+            options?.resolution === '720p' ? '720' : '1080',
+          filenameStyle: 'basic'
+        })
+      });
+
+      const data = await response.json();
+
+      // Handle successful responses
+      if (data.status === 'tunnel' || data.status === 'redirect') {
+        return {
+          downloadUrl: data.url,
+          filename: data.filename || `znyth_${Date.now()}.${format.toLowerCase()}`,
+          fileSize: 'Variable'
+        };
+      }
+
+      // Handle picker responses (multiple options)
+      if (data.status === 'picker' && data.picker?.length > 0) {
+        return {
+          downloadUrl: data.picker[0].url,
+          filename: `znyth_${Date.now()}.${format.toLowerCase()}`,
+          fileSize: 'Variable'
+        };
+      }
+
+      // Handle specific errors
+      if (data.status === 'error') {
+        const errorCode = data.error?.code || '';
+        if (errorCode.includes('unavailable') || errorCode.includes('private')) {
+          throw new Error('This video is unavailable or private');
+        }
+        throw new Error(data.error?.text || 'Conversion failed');
+      }
+
+    } catch (error: any) {
+      console.warn(`Cobalt ${instance} failed:`, error.message);
+      lastError = error;
+
+      // Don't retry on definitive errors
+      if (error.message?.includes('unavailable') || error.message?.includes('private')) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error('All conversion services are busy. Please try again.');
+}
+
+// ------------------------------------------------------------------
+// UTILITY FUNCTIONS
+// ------------------------------------------------------------------
+
+/**
+ * Fetch video metadata (thumbnail, title, duration)
+ * For future use with preview feature
+ */
+export const fetchMediaInfo = async (url: string): Promise<{
+  title?: string;
+  thumbnail?: string;
+  duration?: string;
+} | null> => {
+  // This can be implemented later with a dedicated endpoint
+  // For now, return null to indicate no preview available
+  return null;
 };
