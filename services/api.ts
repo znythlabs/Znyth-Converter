@@ -1,12 +1,15 @@
 import { FileFormat, ConversionResult, ConversionOptions } from '../types';
 
 // ------------------------------------------------------------------
-// COBALT API INSTANCES (Public instances - may have rate limits)
+// COBALT API INSTANCES (From instances.cobalt.best - updated Dec 2025)
 // ------------------------------------------------------------------
 const COBALT_INSTANCES = [
-  'https://cobalt-api.kwiatekmiki.com',
-  'https://cobalt.canine.tools',
-  'https://api.cobalt.tools'
+  'https://cobalt-backend.canine.tools',  // 96% uptime
+  'https://kityune.imput.net',            // 76% uptime
+  'https://blossom.imput.net',            // 76% uptime  
+  'https://capi.3kh0.net',                // 76% uptime
+  'https://nachos.imput.net',             // 72% uptime
+  'https://sunny.imput.net'               // 72% uptime
 ];
 
 // ------------------------------------------------------------------
