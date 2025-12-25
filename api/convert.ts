@@ -89,7 +89,7 @@ async function fetchWithRapidAPI(url: string, format: string, quality: string): 
 
     const endpoint = isAudio
         ? `https://${RAPID_API_HOST}/ajax/download.php?format=mp3&add_info=0&url=${encodedUrl}&audio_quality=${audioQuality}&allow_extended_duration=false&no_merge=false&audio_language=en`
-        : `https://${RAPID_API_HOST}/ajax/download.php?format=mp4&add_info=0&url=${encodedUrl}&quality=${videoQuality}&allow_extended_duration=false&no_merge=false`;
+        : `https://${RAPID_API_HOST}/ajax/download.php?format=${videoQuality}&add_info=0&url=${encodedUrl}&allow_extended_duration=false&no_merge=false`;
 
     console.log('[RapidAPI] Calling:', endpoint.substring(0, 100) + '...');
 
