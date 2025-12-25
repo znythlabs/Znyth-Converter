@@ -1,25 +1,25 @@
 import { FileFormat, ConversionResult, ConversionOptions } from '../types';
 
 // ------------------------------------------------------------------
-// COBALT API INSTANCES (From instances.cobalt.best - updated Dec 2025)
+// API CONFIGURATION
 // ------------------------------------------------------------------
+
+// RapidAPI for YouTube
+const RAPIDAPI_KEY = 'cc989ea7bbmsha43197738848936p17de93jsnf3a4db5b272d';
+const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
+
+// Cobalt instances for other platforms (from instances.cobalt.best)
 const COBALT_INSTANCES = [
   'https://cobalt-backend.canine.tools',  // 96% uptime
   'https://kityune.imput.net',            // 76% uptime
   'https://blossom.imput.net',            // 76% uptime  
   'https://capi.3kh0.net',                // 76% uptime
-  'https://nachos.imput.net',             // 72% uptime
-  'https://sunny.imput.net'               // 72% uptime
 ];
 
 // ------------------------------------------------------------------
 // MAIN API FUNCTION  
 // ------------------------------------------------------------------
 
-/**
- * Converts media from a URL using Cobalt API instances
- * Note: YouTube downloads may be temporarily unavailable due to restrictions
- */
 export const convertMedia = async (
   url: string,
   format: FileFormat,
@@ -30,7 +30,7 @@ export const convertMedia = async (
     throw new Error('Please enter a valid URL');
   }
 
-  // Check for direct media files (no conversion needed)
+  // Check for direct media files
   const lowerUrl = url.toLowerCase();
   if (lowerUrl.match(/\.(mp4|mp3|wav|ogg|webm|jpg|jpeg|png|webp|gif)$/)) {
     return {
@@ -40,89 +40,164 @@ export const convertMedia = async (
     };
   }
 
-  // Check if it's a YouTube URL - show warning
+  // Check if it's YouTube
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    console.warn('[Znyth] YouTube downloads may be temporarily unavailable');
+    console.log('[Znyth] Using RapidAPI for YouTube');
+    return await fetchWithRapidAPI(url, format, options);
   }
 
-  // Try Cobalt instances
-  for (const instance of COBALT_INSTANCES) {
-    try {
-      console.log(`[Znyth] Trying Cobalt instance: ${instance}`);
-      const result = await fetchWithCobalt(instance, url, format, options);
-      if (result) {
-        return result;
-      }
-    } catch (error) {
-      console.warn(`[Znyth] Instance ${instance} failed:`, error);
-      continue;
-    }
-  }
-
-  throw new Error(
-    'Unable to process this video. YouTube downloads may be temporarily unavailable due to platform restrictions. Try TikTok, Instagram, or Twitter instead.'
-  );
+  // Use Cobalt for other platforms
+  console.log('[Znyth] Using Cobalt for non-YouTube');
+  return await fetchWithCobalt(url, format, options);
 };
 
 // ------------------------------------------------------------------
-// COBALT API
+// RAPIDAPI (YouTube)
 // ------------------------------------------------------------------
 
-async function fetchWithCobalt(
-  instance: string,
+function extractVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+async function fetchWithRapidAPI(
   url: string,
   format: FileFormat,
   options?: ConversionOptions
-): Promise<ConversionResult | null> {
-  const isAudio = format === 'MP3';
+): Promise<ConversionResult> {
+  const videoId = extractVideoId(url);
 
-  const requestBody: Record<string, any> = {
-    url: url,
-    downloadMode: isAudio ? 'audio' : 'auto',
-    audioFormat: 'mp3',
-    videoQuality: options?.resolution?.replace('p', '') || '720'
+  if (!videoId) {
+    throw new Error('Invalid YouTube URL');
+  }
+
+  // Map quality to API format
+  // 247 = 720p, 248 = 1080p, 137 = 1080p, 136 = 720p, 135 = 480p
+  const qualityMap: Record<string, string> = {
+    '1080p': '248',
+    '720p': '247',
+    '480p': '135',
+    '360p': '134'
   };
 
-  const response = await fetch(`${instance}/`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(requestBody)
-  });
+  const quality = qualityMap[options?.resolution || '720p'] || '247';
+
+  const response = await fetch(
+    `https://${RAPIDAPI_HOST}/download_video/${videoId}?quality=${quality}`,
+    {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
+      }
+    }
+  );
 
   if (!response.ok) {
-    throw new Error(`Cobalt returned ${response.status}`);
+    throw new Error(`RapidAPI error: ${response.status}`);
   }
 
   const data = await response.json();
+  console.log('[RapidAPI] Response:', data);
 
-  // Handle different Cobalt response formats
-  let downloadUrl = data.url || data.stream?.url;
+  // Handle response - the API might return the download URL directly or in a field
+  let downloadUrl = data.url || data.downloadUrl || data.link || data;
 
-  if (data.status === 'tunnel' || data.status === 'redirect') {
-    downloadUrl = data.url;
-  } else if (data.status === 'picker' && data.picker?.length > 0) {
-    downloadUrl = data.picker[0].url;
-  } else if (data.status === 'error') {
-    throw new Error(data.error?.message || 'Cobalt returned an error');
+  if (typeof downloadUrl === 'object') {
+    downloadUrl = downloadUrl.url || downloadUrl.downloadUrl || JSON.stringify(downloadUrl);
   }
 
-  if (!downloadUrl) {
-    throw new Error('No download URL in response');
+  if (!downloadUrl || typeof downloadUrl !== 'string' || !downloadUrl.startsWith('http')) {
+    throw new Error('Could not get download URL from RapidAPI');
   }
 
-  // Extract filename
-  const filename = data.filename ||
-    extractFilename(downloadUrl) ||
-    `znyth_${Date.now()}.${format.toLowerCase()}`;
+  const filename = `youtube_${videoId}.mp4`;
 
   return {
     downloadUrl,
     filename,
     fileSize: 'Unknown'
   };
+}
+
+// ------------------------------------------------------------------
+// COBALT API (Other platforms)
+// ------------------------------------------------------------------
+
+async function fetchWithCobalt(
+  url: string,
+  format: FileFormat,
+  options?: ConversionOptions
+): Promise<ConversionResult> {
+  const isAudio = format === 'MP3';
+
+  for (const instance of COBALT_INSTANCES) {
+    try {
+      console.log(`[Cobalt] Trying: ${instance}`);
+
+      const requestBody = {
+        url: url,
+        downloadMode: isAudio ? 'audio' : 'auto',
+        audioFormat: 'mp3',
+        videoQuality: options?.resolution?.replace('p', '') || '720'
+      };
+
+      const response = await fetch(`${instance}/`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        console.warn(`[Cobalt] ${instance} returned ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+
+      let downloadUrl = data.url || data.stream?.url;
+
+      if (data.status === 'tunnel' || data.status === 'redirect') {
+        downloadUrl = data.url;
+      } else if (data.status === 'picker' && data.picker?.length > 0) {
+        downloadUrl = data.picker[0].url;
+      } else if (data.status === 'error') {
+        console.warn(`[Cobalt] ${instance} error:`, data.error?.message);
+        continue;
+      }
+
+      if (!downloadUrl) {
+        continue;
+      }
+
+      const filename = data.filename ||
+        extractFilename(downloadUrl) ||
+        `download_${Date.now()}.${format.toLowerCase()}`;
+
+      return {
+        downloadUrl,
+        filename,
+        fileSize: 'Unknown'
+      };
+    } catch (error) {
+      console.warn(`[Cobalt] ${instance} failed:`, error);
+      continue;
+    }
+  }
+
+  throw new Error('Unable to process this video. All Cobalt instances failed.');
 }
 
 function extractFilename(url: string): string | null {
