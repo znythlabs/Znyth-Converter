@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Link2, 
-  Download, 
-  Youtube, 
-  Facebook, 
-  Instagram, 
-  Twitter, 
+import {
+  Link2,
+  Download,
+  Youtube,
+  Facebook,
+  Instagram,
+  Twitter,
   CheckCircle,
   Loader2,
   History,
@@ -63,7 +63,7 @@ const SegmentedControl = <T extends string>({
         // Using a tighter spring to match the "snap" of the toggle switch
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
       />
-      
+
       {/* Foreground Buttons */}
       {options.map((opt) => (
         <button
@@ -87,7 +87,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
   const [batchText, setBatchText] = useState('');
   const [platform, setPlatform] = useState<Platform>(Platform.UNKNOWN);
   const [format, setFormat] = useState<FileFormat>(FileFormat.MP4);
-  
+
   // Internal category state for UI (VIDEO | AUDIO | IMG)
   const [category, setCategory] = useState<'VIDEO' | 'AUDIO' | 'IMG'>('VIDEO');
 
@@ -105,14 +105,14 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
   const [progress, setProgress] = useState(0);
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Result State (Single Mode)
   const [singleResult, setSingleResult] = useState<ConversionResult | null>(null);
 
   // History State
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  
+
   // UI State
   const [isDragging, setIsDragging] = useState(false);
 
@@ -187,7 +187,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
       if (mode === 'SINGLE') {
         setMode('BATCH');
         setBatchText(formatted);
-        setUrl(''); 
+        setUrl('');
         setError(null);
       } else {
         const target = e.target as HTMLTextAreaElement;
@@ -198,17 +198,17 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
         const newVal = val.substring(0, start) + prefix + formatted + val.substring(end);
         setBatchText(newVal);
       }
-    } 
+    }
     else if (mode === 'BATCH' && count === 1) {
-       const target = e.target as HTMLTextAreaElement;
-       const val = target.value;
-       const start = target.selectionStart || 0;
-       if (start > 0 && val[start - 1] !== '\n') {
-          e.preventDefault();
-          const end = target.selectionEnd || 0;
-          const newVal = val.substring(0, start) + '\n' + text + val.substring(end);
-          setBatchText(newVal);
-       }
+      const target = e.target as HTMLTextAreaElement;
+      const val = target.value;
+      const start = target.selectionStart || 0;
+      if (start > 0 && val[start - 1] !== '\n') {
+        e.preventDefault();
+        const end = target.selectionEnd || 0;
+        const newVal = val.substring(0, start) + '\n' + text + val.substring(end);
+        setBatchText(newVal);
+      }
     }
   };
 
@@ -228,21 +228,21 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
 
     try {
       // Call the Service with Options
-      const options = { 
-        resolution, 
-        bitrate, 
-        quality: imgQuality, 
-        codec: audioCodec, 
-        mute: muteAudio, 
-        gpuAcceleration: gpuEnabled 
+      const options = {
+        resolution,
+        bitrate,
+        quality: imgQuality,
+        codec: audioCodec,
+        mute: muteAudio,
+        gpuAcceleration: gpuEnabled
       };
-      
+
       const result = await convertMedia(url, format, options);
-      
+
       clearInterval(interval);
       setProgress(100);
       setSingleResult(result); // Store result for download
-      
+
       // Slight delay to show 100% before switching view
       setTimeout(() => {
         setAppState(AppState.SUCCESS);
@@ -267,21 +267,21 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
     for (const item of itemsToProcess) {
       // Update status to PROCESSING
       setBatchItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'PROCESSING', error: undefined } : i));
-      
+
       try {
         // Mock progress for individual item
         const pInterval = setInterval(() => {
-             setBatchItems(prev => prev.map(i => i.id === item.id && i.progress < 90 ? { ...i, progress: i.progress + 10 } : i));
+          setBatchItems(prev => prev.map(i => i.id === item.id && i.progress < 90 ? { ...i, progress: i.progress + 10 } : i));
         }, 300);
 
         // Pass settings even for batch (using current settings for all)
         const options = { resolution, bitrate, quality: imgQuality, codec: audioCodec, mute: muteAudio, gpuAcceleration: gpuEnabled };
         const result = await convertMedia(item.url, FileFormat.MP4, options); // Default to MP4 for batch, or use current format? Keeping as MP4 default for batch logic simplicity in this demo
-        
+
         clearInterval(pInterval);
 
-        setBatchItems(prev => prev.map(i => i.id === item.id ? { 
-          ...i, 
+        setBatchItems(prev => prev.map(i => i.id === item.id ? {
+          ...i,
           status: 'COMPLETED',
           progress: 100,
           result: result
@@ -296,11 +296,11 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
         });
 
       } catch (err) {
-        setBatchItems(prev => prev.map(i => i.id === item.id ? { 
-           ...i, 
-           status: 'FAILED', 
-           progress: 0,
-           error: "Conversion Failed" 
+        setBatchItems(prev => prev.map(i => i.id === item.id ? {
+          ...i,
+          status: 'FAILED',
+          progress: 0,
+          error: "Conversion Failed"
         } : i));
       }
     }
@@ -333,7 +333,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
     if (failedItems.length === 0) return;
 
     setAppState(AppState.PROCESSING);
-    
+
     // Reset status in UI immediately
     setBatchItems(prev => prev.map(i => i.status === 'FAILED' ? { ...i, status: 'PENDING', progress: 0, error: undefined } : i));
 
@@ -391,7 +391,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
 
   const handleDownload = (result?: ConversionResult) => {
     if (!result) return;
-    
+
     // Create a temporary link to trigger the download
     const link = document.createElement('a');
     link.href = result.downloadUrl;
@@ -423,11 +423,11 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
 
   const getPlatformIcon = (p: Platform, isActive = false) => {
     const style = isActive ? "text-white drop-shadow-sm" : "text-gray-400";
-    
+
     // Custom TikTok SVG since Lucide doesn't provide a branded one
     const TikTokIcon = ({ className }: { className?: string }) => (
       <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
       </svg>
     );
 
@@ -442,12 +442,12 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
   };
 
   const getCategoryIcon = (cat: 'VIDEO' | 'AUDIO' | 'IMG') => {
-     switch(cat) {
-        case 'AUDIO': return <FileAudio className="w-5 h-5 md:w-4 md:h-4" />;
-        case 'VIDEO': return <FileVideo className="w-5 h-5 md:w-4 md:h-4" />;
-        case 'IMG': return <ImageIcon className="w-5 h-5 md:w-4 md:h-4" />;
-        default: return <Link2 className="w-5 h-5 md:w-4 md:h-4" />
-     }
+    switch (cat) {
+      case 'AUDIO': return <FileAudio className="w-5 h-5 md:w-4 md:h-4" />;
+      case 'VIDEO': return <FileVideo className="w-5 h-5 md:w-4 md:h-4" />;
+      case 'IMG': return <ImageIcon className="w-5 h-5 md:w-4 md:h-4" />;
+      default: return <Link2 className="w-5 h-5 md:w-4 md:h-4" />
+    }
   }
 
   // Calculate stats for batch
@@ -473,9 +473,9 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
       <AnimatePresence>
         {showHistory && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowHistory(false)}
               className="fixed inset-0 bg-gray-600/10 backdrop-blur-sm z-40"
@@ -492,8 +492,8 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                   <History className="w-5 h-5 md:w-6 md:h-6 text-[#4B9BFF]" />
                   History
                 </h2>
-                <button 
-                  onClick={() => setShowHistory(false)} 
+                <button
+                  onClick={() => setShowHistory(false)}
                   className="p-3 rounded-full hover:bg-white/50 text-gray-500 transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -520,8 +520,8 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                         </div>
                       </div>
                       <p className="text-sm text-gray-600 font-medium truncate w-full opacity-80">{item.url}</p>
-                      
-                      <button 
+
+                      <button
                         onClick={() => {
                           setMode('SINGLE');
                           setUrl(item.url);
@@ -531,13 +531,13 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                         }}
                         className="mt-2 w-full py-3 neo-btn rounded-xl text-xs font-bold text-gray-500 flex items-center justify-center gap-2 hover:text-[#4B9BFF] transition-colors"
                       >
-                         <RotateCw className="w-3 h-3" /> Re-Process
+                        <RotateCw className="w-3 h-3" /> Re-Process
                       </button>
                     </div>
                   ))
                 )}
               </div>
-              
+
               {history.length > 0 && (
                 <div className="p-6 md:p-8 border-t border-gray-200/50">
                   <button onClick={clearHistory} className="w-full py-4 flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 rounded-2xl transition-colors text-sm font-bold neo-btn">
@@ -551,9 +551,9 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
       </AnimatePresence>
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-100px)] p-4 md:p-12 pb-24">
-        
+
         {/* Toggle History Button - Refined Neomorphism */}
-        <button 
+        <button
           onClick={() => setShowHistory(true)}
           className="fixed bottom-6 right-6 md:bottom-10 md:right-10 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center neo-btn rounded-full z-30 text-gray-500 hover:text-[#4B9BFF] hover:scale-110 active:scale-95 transition-all duration-300"
           title="View History"
@@ -562,7 +562,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
         </button>
 
         <AnimatePresence mode="wait">
-          
+
           {/* MAIN CONVERTER CARD */}
           {(appState === AppState.IDLE || appState === AppState.PROCESSING) && (
             <motion.div
@@ -574,7 +574,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
               className="w-full max-w-2xl"
             >
               <div className="neo-flat px-5 py-8 md:p-16 relative overflow-hidden">
-                
+
                 {/* Hero Header */}
                 <div className="text-center space-y-3 md:space-y-4 mb-8 md:mb-12">
                   <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-800 tracking-tight">
@@ -587,10 +587,10 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
 
                 {/* Main Content */}
                 <div className="space-y-8 md:space-y-10">
-                  
+
                   {/* Mode Toggle Switch - Accessible & Centered */}
                   <div className="flex justify-center mb-2">
-                    <div 
+                    <div
                       className="skeuo-track p-1 flex relative w-full max-w-[20rem] mx-auto h-16 md:h-18 cursor-pointer rounded-full"
                       onClick={toggleMode}
                       onKeyDown={(e) => {
@@ -605,16 +605,16 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                       aria-label="Toggle between Single and Batch mode"
                     >
                       {/* Animated Knob */}
-                      <motion.div 
+                      <motion.div
                         className="absolute top-2 bottom-2 skeuo-knob z-10"
                         initial={false}
-                        animate={{ 
+                        animate={{
                           left: mode === 'SINGLE' ? '8px' : 'calc(50% + 4px)',
                           width: 'calc(50% - 12px)'
                         }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                       />
-                      
+
                       {/* Text Labels (Above Knob) */}
                       <div className="flex-1 relative z-20 flex items-center justify-center">
                         <span className={`text-xs md:text-sm font-black tracking-widest uppercase transition-colors duration-200 ${mode === 'SINGLE' ? 'text-[#4B9BFF]' : 'text-gray-500/70'}`}>
@@ -633,56 +633,56 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                   <div className="space-y-6 md:space-y-8">
                     {mode === 'SINGLE' ? (
                       <div className="space-y-4">
-                         <div className="relative group">
-                            {/* Deeply indented input */}
-                            <div className={`neo-input-wrapper flex items-center p-2 ${error ? 'border-red-400/50 shadow-[inset_3px_3px_7px_#c5c5c5,inset_-3px_-3px_7px_#ffffff,0_0_0_1px_rgba(239,68,68,0.3)]' : ''}`}>
-                              <div className={`pl-3 md:pl-4 ${error ? 'text-red-400' : 'text-gray-400'}`}>
-                                 {platform !== Platform.UNKNOWN ? getPlatformIcon(platform, false) : <Search className="w-5 h-5 md:w-6 md:h-6 opacity-50" />}
-                              </div>
-                              <input
-                                type="text"
-                                value={url}
-                                onChange={(e) => setUrl(e.target.value)}
-                                onPaste={handlePaste}
-                                disabled={appState === AppState.PROCESSING}
-                                placeholder="Paste media link here..."
-                                className={`
+                        <div className="relative group">
+                          {/* Deeply indented input */}
+                          <div className={`neo-input-wrapper flex items-center p-2 ${error ? 'border-red-400/50 shadow-[inset_3px_3px_7px_#c5c5c5,inset_-3px_-3px_7px_#ffffff,0_0_0_1px_rgba(239,68,68,0.3)]' : ''}`}>
+                            <div className={`pl-3 md:pl-4 ${error ? 'text-red-400' : 'text-gray-400'}`}>
+                              {platform !== Platform.UNKNOWN ? getPlatformIcon(platform, false) : <Search className="w-5 h-5 md:w-6 md:h-6 opacity-50" />}
+                            </div>
+                            <input
+                              type="text"
+                              value={url}
+                              onChange={(e) => setUrl(e.target.value)}
+                              onPaste={handlePaste}
+                              disabled={appState === AppState.PROCESSING}
+                              placeholder="Paste media link here..."
+                              className={`
                                   w-full bg-transparent px-3 md:px-4 py-3 md:py-4
                                   focus:outline-none font-semibold text-base md:text-lg placeholder-gray-400/70
                                   disabled:opacity-50 ${error ? 'text-red-500' : 'text-[#666666]'}
                                 `}
-                              />
-                              {url && !error && (
-                                 <div className="pr-2 md:pr-4">
-                                   <div className="w-2 h-2 rounded-full bg-[#4B9BFF] shadow-sm animate-pulse" />
-                                 </div>
-                              )}
-                            </div>
-                            
-                            {/* Error Message for Single Mode - UPDATED STYLE */}
-                            <AnimatePresence>
-                              {error && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -10 }}
-                                  className="neo-inset-error"
-                                >
-                                  <AlertCircle className="w-5 h-5 shrink-0 neo-icon-etched-error" />
-                                  <span className="tracking-wide">{error}</span>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                         </div>
+                            />
+                            {url && !error && (
+                              <div className="pr-2 md:pr-4">
+                                <div className="w-2 h-2 rounded-full bg-[#4B9BFF] shadow-sm animate-pulse" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Error Message for Single Mode - UPDATED STYLE */}
+                          <AnimatePresence>
+                            {error && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="neo-inset-error"
+                              >
+                                <AlertCircle className="w-5 h-5 shrink-0 neo-icon-etched-error" />
+                                <span className="tracking-wide">{error}</span>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                         <div 
-                           className="relative"
-                           onDragOver={handleDragOver}
-                           onDragLeave={handleDragLeave}
-                           onDrop={handleDrop}
-                         >
+                        <div
+                          className="relative"
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                        >
                           <textarea
                             value={batchText}
                             onChange={(e) => setBatchText(e.target.value)}
@@ -699,7 +699,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                               ${isDragging ? 'border-2 border-dashed border-[#4B9BFF] bg-blue-50/50 scale-[1.02]' : ''}
                             `}
                           />
-                          
+
                           {/* Visual overlay for drag state */}
                           {isDragging && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
@@ -711,7 +711,7 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                             </div>
                           )}
 
-                          <button 
+                          <button
                             onClick={() => fileInputRef.current?.click()}
                             className="absolute bottom-4 right-4 md:bottom-6 md:right-6 p-2 md:p-3 neo-btn rounded-xl text-gray-400 hover:text-[#4B9BFF] transition-all z-20"
                             title="Upload .txt File"
@@ -720,186 +720,186 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                           </button>
                           <input type="file" ref={fileInputRef} accept=".txt" className="hidden" onChange={handleFileUpload} />
                         </div>
-                         {error && (
-                            <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="text-center text-red-500 text-xs font-bold"
-                            >
-                              {error}
-                            </motion.div>
-                         )}
+                        {error && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="text-center text-red-500 text-xs font-bold"
+                          >
+                            {error}
+                          </motion.div>
+                        )}
                       </div>
                     )}
 
                     {/* Platform Icons */}
                     <div className="space-y-3">
-                        <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest ml-4 block text-center">Supported Platforms</label>
-                        <div className="flex flex-wrap justify-center gap-3 md:gap-6 py-2">
-                           {[Platform.FACEBOOK, Platform.INSTAGRAM, Platform.TIKTOK, Platform.TWITTER, Platform.YOUTUBE].map((p) => (
-                             <div 
-                               key={p} 
-                               className={`
+                      <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest ml-4 block text-center">Supported Platforms</label>
+                      <div className="flex flex-wrap justify-center gap-3 md:gap-6 py-2">
+                        {[Platform.FACEBOOK, Platform.INSTAGRAM, Platform.TIKTOK, Platform.TWITTER, Platform.YOUTUBE].map((p) => (
+                          <div
+                            key={p}
+                            className={`
                                  w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300
-                                 ${platform === p 
-                                   ? 'neo-tab-active scale-110' 
-                                   : 'neo-btn text-gray-400 hover:text-gray-600'}
+                                 ${platform === p
+                                ? 'neo-tab-active scale-110'
+                                : 'neo-btn text-gray-400 hover:text-gray-600'}
                                `}
-                             >
-                               {getPlatformIcon(p, platform === p)}
-                             </div>
-                           ))}
-                        </div>
+                          >
+                            {getPlatformIcon(p, platform === p)}
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Format Selector - Tactile Pills */}
                     <div className="space-y-4">
-                        <div className="flex justify-between items-end px-4 mb-2">
-                          <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest">Output Format</label>
-                          {/* Advanced Settings Toggle */}
-                          <button 
-                             onClick={() => setShowSettings(!showSettings)}
-                             className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${showSettings ? 'text-[#4B9BFF]' : 'text-gray-500 hover:text-gray-600'}`}
-                          >
-                            <Settings2 className="w-3.5 h-3.5" />
-                            {showSettings ? 'Hide Options' : 'Options'}
-                          </button>
-                        </div>
-                        
-                        {/* MAIN CATEGORIES: VIDEO | AUDIO | IMG */}
-                        <div className="grid grid-cols-3 gap-6 w-full relative z-10">
-                          {(['VIDEO', 'AUDIO', 'IMG'] as const).map((cat) => (
-                            <button
-                              key={cat}
-                              onClick={() => {
-                                setCategory(cat);
-                                if (cat === 'VIDEO') setFormat(FileFormat.MP4);
-                                else if (cat === 'AUDIO') setFormat(FileFormat.MP3);
-                                else setFormat(FileFormat.JPEG); // Default for image
-                              }}
-                              disabled={appState === AppState.PROCESSING}
-                              className={`
+                      <div className="flex justify-between items-end px-4 mb-2">
+                        <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest">Output Format</label>
+                        {/* Advanced Settings Toggle */}
+                        <button
+                          onClick={() => setShowSettings(!showSettings)}
+                          className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${showSettings ? 'text-[#4B9BFF]' : 'text-gray-500 hover:text-gray-600'}`}
+                        >
+                          <Settings2 className="w-3.5 h-3.5" />
+                          {showSettings ? 'Hide Options' : 'Options'}
+                        </button>
+                      </div>
+
+                      {/* MAIN CATEGORIES: VIDEO | AUDIO | IMG */}
+                      <div className="grid grid-cols-3 gap-6 w-full relative z-10">
+                        {(['VIDEO', 'AUDIO', 'IMG'] as const).map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => {
+                              setCategory(cat);
+                              if (cat === 'VIDEO') setFormat(FileFormat.MP4);
+                              else if (cat === 'AUDIO') setFormat(FileFormat.MP3);
+                              else setFormat(FileFormat.JPEG); // Default for image
+                            }}
+                            disabled={appState === AppState.PROCESSING}
+                            className={`
                                 w-full py-3 md:py-4 rounded-2xl text-[10px] md:text-xs font-bold tracking-wider transition-all duration-300 
                                 flex flex-col items-center justify-center gap-2
-                                ${category === cat 
-                                  ? 'neo-tab-active scale-[1.05]' 
-                                  : 'neo-btn text-gray-500 hover:text-gray-700'}
+                                ${category === cat
+                                ? 'neo-tab-active scale-[1.05]'
+                                : 'neo-btn text-gray-500 hover:text-gray-700'}
                               `}
-                            >
-                              {getCategoryIcon(cat)}
-                              <span>{cat === 'IMG' ? 'IMAGE' : cat}</span>
-                            </button>
-                          ))}
-                        </div>
+                          >
+                            {getCategoryIcon(cat)}
+                            <span>{cat === 'IMG' ? 'IMAGE' : cat}</span>
+                          </button>
+                        ))}
+                      </div>
 
-                        {/* ADVANCED SETTINGS PANEL */}
-                        <AnimatePresence>
-                          {showSettings && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="pt-2 pb-2">
-                                <div className="neo-pressed rounded-2xl p-4 md:p-5 flex flex-col gap-4">
+                      {/* ADVANCED SETTINGS PANEL */}
+                      <AnimatePresence>
+                        {showSettings && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pt-2 pb-2">
+                              <div className="neo-pressed rounded-2xl p-4 md:p-5 flex flex-col gap-4">
 
-                                  {/* VIDEO SETTINGS (MP4) */}
-                                  {isVideo && (
-                                    <>
-                                      <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                          <Maximize2 className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
-                                          <span>Resolution</span>
-                                        </div>
-                                        <SegmentedControl 
-                                          options={['720p', '1080p', '4k'] as VideoResolution[]}
-                                          value={resolution}
-                                          onChange={(val) => setResolution(val)}
-                                        />
-                                      </div>
-
-                                      <div className="flex items-center justify-between">
-                                         <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                            {muteAudio ? <VolumeX className="w-4 h-4 text-orange-400 neo-icon-etched" /> : <Volume2 className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />}
-                                            <span>Mute Audio</span>
-                                         </div>
-                                         
-                                         <div className="switch-toggle">
-                                            <input 
-                                              id="mute-switch"
-                                              type="checkbox" 
-                                              checked={muteAudio}
-                                              onChange={(e) => setMuteAudio(e.target.checked)}
-                                            />
-                                            <label htmlFor="mute-switch"></label>
-                                         </div>
-                                      </div>
-                                    </>
-                                  )}
-
-                                  {/* AUDIO SETTINGS (MP3) */}
-                                  {isAudio && (
-                                    <>
-                                      <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                          <Music className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
-                                          <span>Bitrate</span>
-                                        </div>
-                                        <SegmentedControl 
-                                          options={['128k', '192k', '320k'] as AudioBitrate[]}
-                                          value={bitrate}
-                                          onChange={(val) => setBitrate(val)}
-                                        />
-                                      </div>
-
-                                      <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                          <AudioLines className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
-                                          <span>Codec</span>
-                                        </div>
-                                        <SegmentedControl 
-                                          options={['AAC', 'OPUS', 'MP3'] as AudioCodec[]}
-                                          value={audioCodec}
-                                          onChange={(val) => setAudioCodec(val)}
-                                        />
-                                      </div>
-                                    </>
-                                  )}
-
-                                  {/* IMAGE SETTINGS */}
-                                  {isImage && (
+                                {/* VIDEO SETTINGS (MP4) */}
+                                {isVideo && (
+                                  <>
                                     <div className="space-y-3">
                                       <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
-                                        <ImageIcon className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
-                                        <span>Format</span>
+                                        <Maximize2 className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
+                                        <span>Resolution</span>
                                       </div>
-                                      <div className="capitalize">
-                                        <SegmentedControl 
-                                          options={['JPEG', 'PNG', 'WEBP']}
-                                          value={format as string}
-                                          onChange={(val) => setFormat(val as FileFormat)}
-                                        />
+                                      <SegmentedControl
+                                        options={['720p', '1080p', '4k'] as VideoResolution[]}
+                                        value={resolution}
+                                        onChange={(val) => setResolution(val)}
+                                      />
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                        {muteAudio ? <VolumeX className="w-4 h-4 text-orange-400 neo-icon-etched" /> : <Volume2 className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />}
+                                        <span>Mute Audio</span>
                                       </div>
 
-                                      <div className="flex items-center gap-2 text-xs font-bold text-gray-500 mt-4">
-                                        <Image className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
-                                        <span>Quality Level</span>
-                                      </div>
-                                      <div className="capitalize">
-                                        <SegmentedControl 
-                                          options={['LOW', 'MEDIUM', 'HIGH'] as ImageQuality[]}
-                                          value={imgQuality}
-                                          onChange={(val) => setImgQuality(val)}
+                                      <div className="switch-toggle">
+                                        <input
+                                          id="mute-switch"
+                                          type="checkbox"
+                                          checked={muteAudio}
+                                          onChange={(e) => setMuteAudio(e.target.checked)}
                                         />
+                                        <label htmlFor="mute-switch"></label>
                                       </div>
                                     </div>
-                                  )}
-                                </div>
+                                  </>
+                                )}
+
+                                {/* AUDIO SETTINGS (MP3) */}
+                                {isAudio && (
+                                  <>
+                                    <div className="space-y-3">
+                                      <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                        <Music className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
+                                        <span>Bitrate</span>
+                                      </div>
+                                      <SegmentedControl
+                                        options={['128k', '192k', '320k'] as AudioBitrate[]}
+                                        value={bitrate}
+                                        onChange={(val) => setBitrate(val)}
+                                      />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                      <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                        <AudioLines className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
+                                        <span>Codec</span>
+                                      </div>
+                                      <SegmentedControl
+                                        options={['AAC', 'OPUS', 'MP3'] as AudioCodec[]}
+                                        value={audioCodec}
+                                        onChange={(val) => setAudioCodec(val)}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                {/* IMAGE SETTINGS */}
+                                {isImage && (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                                      <ImageIcon className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
+                                      <span>Format</span>
+                                    </div>
+                                    <div className="capitalize">
+                                      <SegmentedControl
+                                        options={['JPEG', 'PNG', 'WEBP']}
+                                        value={format as string}
+                                        onChange={(val) => setFormat(val as FileFormat)}
+                                      />
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-500 mt-4">
+                                      <Image className="w-4 h-4 text-[#4B9BFF] neo-icon-etched" />
+                                      <span>Quality Level</span>
+                                    </div>
+                                    <div className="capitalize">
+                                      <SegmentedControl
+                                        options={['LOW', 'MEDIUM', 'HIGH'] as ImageQuality[]}
+                                        value={imgQuality}
+                                        onChange={(val) => setImgQuality(val)}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 
@@ -908,31 +908,31 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                     <div className="max-h-56 overflow-y-auto neo-pressed rounded-2xl p-4 space-y-3 custom-scrollbar">
                       {batchItems.map((item) => (
                         <div key={item.id} className="flex items-center gap-4 p-3 bg-white/40 rounded-xl border border-white/50 relative overflow-hidden">
-                           {/* Status Icon */}
-                           <div className="shrink-0 z-10">
-                              {item.status === 'COMPLETED' && <CheckCircle className="w-5 h-5 text-[#4B9BFF]" />}
-                              {item.status === 'PROCESSING' && <Loader2 className="w-5 h-5 text-[#4B9BFF] animate-spin" />}
-                              {item.status === 'FAILED' && <AlertCircle className="w-5 h-5 text-red-500" />}
-                              {item.status === 'PENDING' && <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-dashed" />}
-                           </div>
+                          {/* Status Icon */}
+                          <div className="shrink-0 z-10">
+                            {item.status === 'COMPLETED' && <CheckCircle className="w-5 h-5 text-[#4B9BFF]" />}
+                            {item.status === 'PROCESSING' && <Loader2 className="w-5 h-5 text-[#4B9BFF] animate-spin" />}
+                            {item.status === 'FAILED' && <AlertCircle className="w-5 h-5 text-red-500" />}
+                            {item.status === 'PENDING' && <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-dashed" />}
+                          </div>
 
-                           <div className="flex-1 space-y-1.5 z-10 min-w-0">
-                              <div className="flex justify-between items-center text-xs font-bold">
-                                 <span className={`truncate ${item.status === 'FAILED' ? 'text-red-500' : 'text-gray-500'}`}>
-                                   {item.url}
-                                 </span>
-                                 <span className={item.status === 'FAILED' ? 'text-red-500' : 'text-gray-400'}>
-                                   {item.status === 'FAILED' ? (item.error || 'Failed') : `${Math.round(item.progress)}%`}
-                                 </span>
-                              </div>
-                              {/* Progress Bar */}
-                              <div className="h-1.5 bg-gray-200/60 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full transition-all duration-300 rounded-full ${item.status === 'FAILED' ? 'bg-red-400' : 'bg-[#4B9BFF] shadow-[0_0_10px_#4B9BFF]'}`} 
-                                  style={{ width: `${item.progress}%` }} 
-                                />
-                              </div>
-                           </div>
+                          <div className="flex-1 space-y-1.5 z-10 min-w-0">
+                            <div className="flex justify-between items-center text-xs font-bold">
+                              <span className={`truncate ${item.status === 'FAILED' ? 'text-red-500' : 'text-gray-500'}`}>
+                                {item.url}
+                              </span>
+                              <span className={item.status === 'FAILED' ? 'text-red-500' : 'text-gray-400'}>
+                                {item.status === 'FAILED' ? (item.error || 'Failed') : `${Math.round(item.progress)}%`}
+                              </span>
+                            </div>
+                            {/* Progress Bar */}
+                            <div className="h-1.5 bg-gray-200/60 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 rounded-full ${item.status === 'FAILED' ? 'bg-red-400' : 'bg-[#4B9BFF] shadow-[0_0_10px_#4B9BFF]'}`}
+                                style={{ width: `${item.progress}%` }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -946,31 +946,31 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
                       className={`
                         w-full h-16 md:h-20 rounded-3xl font-black text-base md:text-lg tracking-widest uppercase
                         transition-all duration-300 relative group overflow-hidden
-                        ${(!url && !batchText) 
-                           ? 'neo-btn-disabled' 
-                           : appState === AppState.PROCESSING 
-                             ? 'neo-pressed text-[#4B9BFF] border border-transparent'
-                             : 'neo-primary-btn hover:-translate-y-1'
+                        ${(!url && !batchText)
+                          ? 'neo-btn-disabled'
+                          : appState === AppState.PROCESSING
+                            ? 'neo-pressed text-[#4B9BFF] border border-transparent'
+                            : 'neo-primary-btn hover:-translate-y-1'
                         }
                       `}
                     >
                       <div className="relative z-10 flex items-center justify-center gap-3">
-                         {appState === AppState.PROCESSING ? (
-                           <>
-                             <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" />
-                             <span>Processing...</span>
-                           </>
-                         ) : (
-                           <>
-                             <span>Convert Media</span>
-                             <ChevronRight className="w-5 h-5 md:w-6 md:h-6 opacity-60 group-hover:translate-x-1 transition-transform" />
-                           </>
-                         )}
+                        {appState === AppState.PROCESSING ? (
+                          <>
+                            <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Convert Media</span>
+                            <ChevronRight className="w-5 h-5 md:w-6 md:h-6 opacity-60 group-hover:translate-x-1 transition-transform" />
+                          </>
+                        )}
                       </div>
-                      
+
                       {/* Internal Glow Animation for Processing (Single Mode) */}
                       {appState === AppState.PROCESSING && mode === 'SINGLE' && (
-                        <motion.div 
+                        <motion.div
                           className="absolute inset-0 bg-[#4B9BFF]/10 z-0"
                           initial={{ width: '0%' }}
                           animate={{ width: `${progress}%` }}
@@ -996,60 +996,60 @@ const Converter: React.FC<ConverterProps> = ({ appState, setAppState }) => {
               className="w-full max-w-lg"
             >
               <div className="neo-flat p-8 md:p-12 text-center relative overflow-hidden">
-                 
-                 {/* Success Icon */}
-                 <div className="mx-auto w-24 h-24 rounded-full neo-pressed flex items-center justify-center mb-6 text-[#4B9BFF] relative">
-                    <CheckCircle className="w-12 h-12" />
-                    <div className="absolute inset-0 rounded-full border-4 border-[#4B9BFF]/20 animate-ping opacity-50" />
-                 </div>
 
-                 <h2 className="text-2xl font-black text-gray-800 mb-2">Conversion Complete</h2>
-                 <p className="text-gray-500 mb-8 font-medium">Your media is ready for download.</p>
+                {/* Success Icon */}
+                <div className="mx-auto w-24 h-24 rounded-full neo-pressed flex items-center justify-center mb-6 text-[#4B9BFF] relative">
+                  <CheckCircle className="w-12 h-12" />
+                  <div className="absolute inset-0 rounded-full border-4 border-[#4B9BFF]/20 animate-ping opacity-50" />
+                </div>
 
-                 {/* Result Details (Single Mode) - UPDATED NEUMORPHIC STYLE */}
-                 {mode === 'SINGLE' && singleResult && (
-                   <div className="neo-inset-panel mb-8">
-                      <p className="text-sm font-bold text-gray-700 break-all line-clamp-2 mb-1">{singleResult.filename}</p>
-                      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{singleResult.fileSize}</p>
-                   </div>
-                 )}
+                <h2 className="text-2xl font-black text-gray-800 mb-2">Conversion Complete</h2>
+                <p className="text-gray-500 mb-8 font-medium">Your media is ready for download.</p>
 
-                 {/* Result Details (Batch Mode Summary) - UPDATED NEUMORPHIC STYLE */}
-                 {mode === 'BATCH' && (
-                    <div className="neo-inset-panel mb-8">
-                      <p className="text-sm font-bold text-gray-700">{completedItems.length} files converted successfully.</p>
-                      {hasFailures && <p className="text-xs text-red-500 mt-1 font-bold">{failedItems.length} failed.</p>}
-                    </div>
-                 )}
+                {/* Result Details (Single Mode) - UPDATED NEUMORPHIC STYLE */}
+                {mode === 'SINGLE' && singleResult && (
+                  <div className="neo-inset-panel mb-8">
+                    <p className="text-sm font-bold text-gray-700 break-all line-clamp-2 mb-1">{singleResult.filename}</p>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{singleResult.fileSize}</p>
+                  </div>
+                )}
 
-                 {/* Action Buttons */}
-                 <div className="space-y-4">
-                    {mode === 'SINGLE' ? (
-                       <button 
-                          onClick={() => handleDownload(singleResult!)}
-                          className="w-full h-16 rounded-2xl neo-primary-btn flex items-center justify-center gap-3 font-bold text-lg uppercase tracking-wider"
-                       >
-                          <Download className="w-6 h-6" />
-                          Download File
-                       </button>
-                    ) : (
-                       <button 
-                          onClick={handleBatchDownload}
-                          className="w-full h-16 rounded-2xl neo-primary-btn flex items-center justify-center gap-3 font-bold text-lg uppercase tracking-wider"
-                       >
-                          <Download className="w-6 h-6" />
-                          Download All
-                       </button>
-                    )}
+                {/* Result Details (Batch Mode Summary) - UPDATED NEUMORPHIC STYLE */}
+                {mode === 'BATCH' && (
+                  <div className="neo-inset-panel mb-8">
+                    <p className="text-sm font-bold text-gray-700">{completedItems.length} files converted successfully.</p>
+                    {hasFailures && <p className="text-xs text-red-500 mt-1 font-bold">{failedItems.length} failed.</p>}
+                  </div>
+                )}
 
-                    <button 
-                      onClick={reset}
-                      className="w-full py-4 rounded-xl neo-btn text-gray-500 font-bold hover:text-[#4B9BFF] flex items-center justify-center gap-2"
+                {/* Action Buttons */}
+                <div className="space-y-4">
+                  {mode === 'SINGLE' ? (
+                    <button
+                      onClick={() => handleDownload(singleResult!)}
+                      className="w-full h-16 rounded-2xl neo-primary-btn flex items-center justify-center gap-3 font-bold text-lg uppercase tracking-wider"
                     >
-                      <RefreshCw className="w-4 h-4" />
-                      Convert Another
+                      <Download className="w-6 h-6" />
+                      Download File
                     </button>
-                 </div>
+                  ) : (
+                    <button
+                      onClick={handleBatchDownload}
+                      className="w-full h-16 rounded-2xl neo-primary-btn flex items-center justify-center gap-3 font-bold text-lg uppercase tracking-wider"
+                    >
+                      <Download className="w-6 h-6" />
+                      Download All
+                    </button>
+                  )}
+
+                  <button
+                    onClick={reset}
+                    className="w-full py-4 rounded-xl neo-btn text-gray-500 font-bold hover:text-[#4B9BFF] flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Convert Another
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
