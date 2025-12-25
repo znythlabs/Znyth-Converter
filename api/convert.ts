@@ -169,7 +169,44 @@ async function fetchWithCobalt(url: string, format: string, quality: string): Pr
 }
 
 function extractDownloadUrl(data: any): { url: string; filename: string; size?: string } | null {
-    // Handle various API response formats
+    // Handle YouTube Info & Download API response (base64 encoded HTML)
+    if (data.success && data.content) {
+        try {
+            // Decode base64 content
+            const html = Buffer.from(data.content, 'base64').toString('utf-8');
+            console.log('[RapidAPI] Decoded HTML (first 500 chars):', html.substring(0, 500));
+
+            // Extract download link from HTML - look for href with download URL
+            // Pattern: href="https://...download..." or data-url="..."
+            const urlPatterns = [
+                /href=["']([^"']*(?:download|\.mp4|\.mp3|\.webm)[^"']*)["']/gi,
+                /data-url=["']([^"']+)["']/gi,
+                /(https?:\/\/[^\s"'<>]+(?:\.mp4|\.mp3|\.webm))/gi,
+                /window\.location\.href\s*=\s*["']([^"']+)["']/gi
+            ];
+
+            for (const pattern of urlPatterns) {
+                const matches = html.matchAll(pattern);
+                for (const match of matches) {
+                    const url = match[1];
+                    if (url && url.startsWith('http') && !url.includes('javascript:')) {
+                        console.log('[RapidAPI] Found download URL:', url.substring(0, 100));
+                        return {
+                            url,
+                            filename: data.id || 'download',
+                            size: 'Unknown'
+                        };
+                    }
+                }
+            }
+
+            console.warn('[RapidAPI] No download URL found in HTML');
+        } catch (e) {
+            console.error('[RapidAPI] Failed to decode content:', e);
+        }
+    }
+
+    // Handle various other API response formats
     if (typeof data.url === 'string') {
         return { url: data.url, filename: data.filename || 'download', size: data.size };
     }
